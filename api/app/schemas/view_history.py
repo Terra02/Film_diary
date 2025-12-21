@@ -21,7 +21,6 @@ class ViewHistoryBase(BaseModel):
     content_id: int
     watched_at: Optional[datetime] = None
     rating: Optional[float] = None
-    duration_watched: Optional[int] = None
     notes: Optional[str] = None
 
 

@@ -12,8 +12,6 @@ class ViewHistory(Base):
     content_id = Column(Integer, ForeignKey("content.id"), nullable=False)
     watched_at = Column(DateTime(timezone=True), server_default=func.now())
     rating = Column(Float, nullable=True)
-    duration_watched = Column(Integer, nullable=True)
-    rewatch = Column(Boolean, default=False)
     notes = Column(Text, nullable=True)
     created_at = Column(DateTime(timezone=True), server_default=func.now())
     user = relationship("User")

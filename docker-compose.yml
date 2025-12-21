@@ -1,0 +1,75 @@
+services:
+  postgres:
+    image: postgres:15
+    env_file:
+      - .env
+    environment:
+      POSTGRES_DB: ${POSTGRES_DB}
+      POSTGRES_USER: ${POSTGRES_USER}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+      POSTGRES_INITDB_ARGS: "--encoding=UTF-8"
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+      - ./init.sql:/docker-entrypoint-initdb.d/init_db.sql
+    networks:
+      - movie-tracker-network
+
+  api:
+    build: ./api
+    env_file:
+      - .env
+    ports:
+      - "8000:8000"
+    environment:
+      - DATABASE_URL=postgresql+asyncpg://${POSTGRES_USER}:${POSTGRES_PASSWORD}@postgres:5432/${POSTGRES_DB}
+      - WORKER_URL=http://worker:8001
+    depends_on:
+      - postgres
+      - worker
+    networks:
+      - movie-tracker-network
+
+  telegram-bot:
+    build: ./telegram_bot
+    env_file:
+      - .env
+    environment:
+      - API_URL=http://api:8000/
+      - TELEGRAM_BOT_TOKEN=${TELEGRAM_BOT_TOKEN}
+    depends_on:
+      - api
+    networks:
+      - movie-tracker-network
+
+  web-analytics:
+    build: ./web_analytics
+    env_file:
+      - .env
+    ports:
+      - "8501:8501"
+    environment:
+      - API_URL=http://api:8000/
+    depends_on:
+      - api
+    networks:
+      - movie-tracker-network
+
+  worker:
+    build: ./worker
+    env_file:
+      - .env
+    environment:
+      - OMDB_API_KEY=${OMDB_API_KEY}
+    ports:
+      - "8001:8001"
+    networks:
+      - movie-tracker-network
+
+volumes:
+  postgres_data:
+
+networks:
+  movie-tracker-network:
+    driver: bridge
