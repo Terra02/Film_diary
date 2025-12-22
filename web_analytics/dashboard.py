@@ -19,7 +19,7 @@ def _build_client(api_url: str) -> httpx.Client:
 
 def _time_range_to_days(label: str) -> int:
     mapping = {
-        "Все время": 365,
+        "Все время": 36500,
     }
     return mapping.get(label, 30)
 
@@ -163,8 +163,15 @@ user_identifier = st.sidebar.text_input(
     help="Можно вводить Telegram ID — система найдёт нужного пользователя автоматически.",
 )
 
+year_options = list(range(2020, datetime.now().year + 1))
+selected_year = st.sidebar.selectbox(
+    "Год для помесячной статистики",
+    options=year_options,
+    index=len(year_options) - 1,
+)
 
 days = _time_range_to_days("Все время")
+analytics_days = min(days,365)
 end_date = datetime.now()
 start_date = end_date - timedelta(days=days)
 
@@ -172,7 +179,8 @@ resolved_user_id = resolve_user_id(api_url, user_identifier)
 if resolved_user_id is None:
     st.stop()
 
-analytics = fetch_user_analytics(api_url, resolved_user_id, days)
+analytics = fetch_user_analytics(api_url, resolved_user_id, analytics_days)
+use_analytics = days <= analytics_days
 timeline = fetch_user_timeline(api_url, resolved_user_id, period="monthly")
 history_records = fetch_view_history(api_url, resolved_user_id, limit=DATA_LIMIT)
 df = build_dataframe(history_records, start_date, end_date)
@@ -185,13 +193,23 @@ if df.empty and not analytics:
 
 st.header("📊 Ключевые Метрики")
 
-total_items = analytics.get("total_views") if analytics else len(df)
-total_movies = analytics.get("movies_views") if analytics else int((df["content_type"] == "movie").sum())
+total_items = (
+    analytics.get("total_views") if analytics and use_analytics else len(df)
+)
+total_movies = (
+    analytics.get("movies_views")
+    if analytics and use_analytics
+    else int((df["content_type"] == "movie").sum())
+)
 total_series_views = (
-    analytics.get("series_views") if analytics else int((df["content_type"] == "series").sum())
+    analytics.get("series_views")
+    if analytics and use_analytics
+    else int((df["content_type"] == "series").sum())
 )
 avg_rating = (
-    analytics.get("average_rating") if analytics else round(df["user_rating"].dropna().mean(), 2)
+    analytics.get("average_rating")
+    if analytics and use_analytics
+    else round(df["user_rating"].dropna().mean(), 2)
 )
 
 col1, col2, col3, col4 = st.columns(4)
@@ -209,9 +227,16 @@ st.divider()
 st.header("📈 Визуализация Данных")
 
 st.subheader("Количество Просмотров по Месяцам")
-monthly_counts = _filter_timeline(timeline, start_date, end_date)
+monthly_start = datetime(selected_year, 1, 1)
+monthly_end = datetime(selected_year, 12, 31, 23, 59, 59)
+monthly_counts = _filter_timeline(timeline, monthly_start, monthly_end)
 if monthly_counts.empty and not df.empty:
-    monthly_counts = df.groupby("watch_month").size().reset_index(name="Количество")
+    monthly_counts = (
+        df[df["watch_date"].dt.year == selected_year]
+        .groupby("watch_month")
+        .size()
+        .reset_index(name="Количество")
+    )
     monthly_counts = monthly_counts.rename(columns={"watch_month": "watch_period"})
 
 if not monthly_counts.empty:
@@ -228,23 +253,45 @@ else:
 
     st.altair_chart(chart_monthly.interactive(), use_container_width=True)
 
-st.subheader("Соотношение Фильмов и Сериалов")
 type_counts = df.groupby("content_type_display").size().reset_index(name="Количество")
 
 if type_counts.empty:
     st.info("Нет данных для построения диаграммы по типам контента.")
 else:
-    chart_type = alt.Chart(type_counts).mark_arc(outerRadius=120).encode(
-        theta=alt.Theta(field="Количество", type="quantitative"),color=alt.Color(field="content_type_display", title="Тип контента"),
-        tooltip=["content_type_display", "Количество"],
-    ).properties(height=350)
-    
+    rating_column, chart_column = st.columns([1, 2])
+    with rating_column:
+            st.markdown("**Средний рейтинг**")
+            rating_value = avg_rating if avg_rating else 0
+            rating_data = pd.DataFrame([{"label": "", "value": rating_value}])
+            rating_chart = (
+                alt.Chart(rating_data)
+                .mark_bar(color="#10b981")
+                .encode(
+                    x=alt.X(
+                        "value:Q",
+                        title="Оценка",
+                        scale=alt.Scale(domain=[0, 10]),
+                    ),
+                    y=alt.YOffsetDatum("label:N", axis=None),
+                    tooltip=[alt.Tooltip("value:Q", title="Средний рейтинг")],
+                )
+                .properties(height=80)
+            )
+            st.altair_chart(rating_chart, use_container_width=True)
 
+    with chart_column:
+        st.markdown("**Соотношение фильмов и сериалов**")
+        chart_type = alt.Chart(type_counts).mark_arc(outerRadius=120).encode(
+            theta=alt.Theta(field="Количество", type="quantitative"),
+            color=alt.Color(field="content_type_display", title="Тип контента"),
+            tooltip=["content_type_display", "Количество"],
+        ).properties(height=350)
     st.altair_chart(chart_type, use_container_width=True)
-    st.markdown("---")
-    st.markdown(
-        f"**Всего фильмов:** {total_movies} | **Всего сериалов:** {total_series_views}"
-    )
+
+st.markdown("----")
+st.markdown(
+    f"**Всего фильмов:** {total_movies} | **Всего сериалов:** {total_series_views}"
+)
 
 st.header("📖 Последние Просмотры")
 
