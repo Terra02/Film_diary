@@ -12,6 +12,7 @@ from app.services.watchlist_service import WatchlistService
 from app.states.search_state import SearchState
 from app.utils.message_helpers import send_content_card, update_content_card
 from app.utils.text_templates import get_search_results_message
+from app.services.content_service import ContentService
 
 router = Router()
 logger = logging.getLogger(__name__)
@@ -35,8 +36,6 @@ async def process_search_query(message: types.Message, state: FSMContext):
     search_message = await message.answer("🔍 Ищем...")
 
     try:
-        from app.services.content_service import ContentService
-
         content_service = ContentService()
         raw_result = await content_service.search_content(query)
 
