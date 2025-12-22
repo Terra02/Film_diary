@@ -161,8 +161,8 @@ async def watchlist_watched_date(message: types.Message, state: FSMContext):
         )
         return
 
-    if watched_at.year <= 1925:
-        await message.answer("Год просмотра должен быть не раньше 1925.")
+    if watched_at.year <= 2020:
+        await message.answer("Год просмотра должен быть не раньше 2020.")
         return
 
 
