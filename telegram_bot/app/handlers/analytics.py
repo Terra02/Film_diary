@@ -2,7 +2,6 @@ from aiogram import Router, types, F
 from aiogram.filters import Command
 from aiogram.fsm.context import FSMContext
 
-from app.utils.formatters import format_analytics_message
 from app.utils.text_templates import get_analytics_message
 
 router = Router()
