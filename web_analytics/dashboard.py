@@ -154,7 +154,7 @@ def _filter_timeline(
 st.title("🎬 Аналитика Просмотров")
 
 st.markdown(
-    "Здесь вы найдете все ключевые метрики и статистику по просмотренным фильмам и сериалам")
+    "Здесь вы найдете все ключевые показатели и статистику по просмотренным фильмам и сериалам")
 
 st.sidebar.header("Фильтры и настройки")
 api_url = DEFAULT_API_URL
@@ -191,7 +191,7 @@ if df.empty and not analytics:
 
 
 
-st.header("📊 Ключевые Метрики")
+st.header("📊 Ключевые Показатели")
 
 total_items = (
     analytics.get("total_views") if analytics and use_analytics else len(df)
@@ -265,7 +265,7 @@ else:
             rating_data = pd.DataFrame([{"label": "", "value": rating_value}])
             rating_chart = (
                 alt.Chart(rating_data)
-                .mark_bar(color="#10b981")
+                .mark_bar(color="#6366f1")
                 .encode(
                     x=alt.X(
                         "value:Q",
@@ -301,12 +301,15 @@ else:
     recent_views = df.sort_values(by="watch_date", ascending=False)[
         ["title", "content_type_display", "user_rating", "watch_date"]
     ].head(10)
+    recent_views["watch_date"] = pd.to_datetime(
+        recent_views["watch_date"]
+    ).dt.strftime("%Y-%m-%d")
     recent_views.columns = [
         "Название",
         "Тип",
         "Рейтинг",
         "Дата Просмотра",
     ]
-    st.dataframe(recent_views, use_container_width=True)
+    st.dataframe(recent_views, use_container_width=True,height = 300)
 
 st.divider()
